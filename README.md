@@ -1,0 +1,2 @@
+# common-key
+A common key/value store for applications on a linux system 
