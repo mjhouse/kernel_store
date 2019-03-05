@@ -1,6 +1,10 @@
 
 // https://www.xml.com/ldd/chapter/book/ch05.html
 
+// https://www.oreilly.com/library/view/linux-device-drivers/0596005903/ch06.html
+
+// https://lwn.net/Articles/48354/
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -22,14 +26,6 @@ static ssize_t device_read(struct file *filp, char *buffer, size_t len, loff_t *
 static ssize_t device_write(struct file *filp, const char *buffer, size_t len, loff_t *offset);
 
 static int major_num;
-
-/* FOR TESTING */
-struct kern_store store = {
-    "KEY",
-    "VALUE",
-    3, 5
-};
-/* END TESTING */
 
 /* Device function mapping for this module */
 struct file_operations fops = {
@@ -69,6 +65,42 @@ static ssize_t device_write(struct file *filp, const char *buffer, size_t len, l
 
     return written_bytes;
 };
+
+// /* This function is called whenever a process tries to 
+//  * do an ioctl on our device file. We get two extra 
+//  * parameters (additional to the inode and file 
+//  * structures, which all device functions get): the number
+//  * of the ioctl called and the parameter given to the 
+//  * ioctl function.
+//  *
+//  * If the ioctl is write or read/write (meaning output 
+//  * is returned to the calling process), the ioctl call 
+//  * returns the output of this function.
+//  */
+int device_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long param) {
+    unsigned long err = 0;
+    char* key = (char*)param;
+    char* val = 0;
+
+
+    if (access_ok(VERIFY_WRITE,key, 1 /*at least one byte*/ )) {
+        
+        // get the value from the datastore
+        val = ks_get(key);
+
+        // try to re-allocate the userspace data
+        if(krealloc(key, len(key) * sizeof(char) + 1, GFP_USER)){
+            copy_to_user(key,val,len(val) * sizeof(char) + 1);
+        }
+
+    }
+
+
+//    int err = 0;
+//    if(access_ok(VERIFY_WRITE,ioctl_param, 1 )){
+//      err = copy_to_user((char*) value_to_return, &ioctl_param, sizeof(ioctl_param) + 1 );
+//    }
+}
 
 static int __init kernel_store_init(void) {
     major_num = register_chrdev(0, DEVICE_NAME, &fops);
