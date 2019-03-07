@@ -12,7 +12,7 @@ struct data_pair {
 // typedef for convenience
 typedef struct data_pair node;
 
-#define KS_GET_VALUE _IOR('q', 1, node*)
+#define KS_GET_VALUE _IOW('q', 1, node*)
 #define KS_SET_VALUE _IOW('q', 2, node*)
 
 #endif

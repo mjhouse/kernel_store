@@ -64,19 +64,14 @@ static long device_ioctl(struct file *filp, unsigned int cmd, unsigned long para
         case KS_GET_VALUE:
             printk("KS_GET_VALUE");
 
-            sk = strlen(stash.key) + 1;
             sv = strlen(stash.val) + 1;
+            printk("\tsv: %lu",sv);
 
-            printk("sk: %lu, sv: %lu",sk,sv);
+            if(access_ok(VERIFY_WRITE,n->val,sv)){
 
-            if( access_ok(VERIFY_WRITE,n->key,sk) &&
-                access_ok(VERIFY_WRITE,n->val,sv)){
-
-                err = copy_to_user( n->key, stash.key, sk);
-                printk("key chars not copied: %lu",err);
-
+//                n->val = (char*)kmalloc(sv,GFP_USER);
                 err = copy_to_user( n->val, stash.val, sv);
-                printk("val chars not copied: %lu",err);
+                printk("\tval chars not copied: %lu",err);
 
             }
 
@@ -98,7 +93,7 @@ static long device_ioctl(struct file *filp, unsigned int cmd, unsigned long para
                 return -EINVAL;
             }
 
-            printk("stash: %s/%s",stash.key,stash.val);
+            printk("\tstash: %s/%s",stash.key,stash.val);
             break;
         default:
             return -EINVAL;
@@ -116,13 +111,6 @@ static int __init kernel_store_init(void) {
     } else {
         printk(KERN_INFO "kernel_store module loaded with device major number %d\n", major_num);
     }
-
-    // stash.key = (char*)kcalloc(32,sizeof(char),GFP_KERNEL);
-    // stash.val = (char*)kcalloc(32,sizeof(char),GFP_KERNEL);
-    //
-    // if(!stash.key || !stash.val){
-    //     return -ENOMEM;
-    // }
     return 0;
 }
 

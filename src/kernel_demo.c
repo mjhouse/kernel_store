@@ -16,7 +16,7 @@ void log_exit(char* msg){
 
 int main(){
     node n = { .key = "KEY", .val = "VALUE" };
-    node p = { .key = "KEY", .val = "12345" };
+    node p = { .key = "KEY", .val = "NOVAL" };
 
     int fd = open("/dev/ks", O_RDWR);
     if (fd == -1) log_exit("couldn't open device");
