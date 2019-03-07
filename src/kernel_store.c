@@ -1,16 +1,12 @@
-
-// https://www.xml.com/ldd/chapter/book/ch05.html
-
-// https://www.oreilly.com/library/view/linux-device-drivers/0596005903/ch06.html
-
-// https://lwn.net/Articles/48354/
-
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/fs.h>
+#include <linux/slab.h>
+#include <linux/uaccess.h>
+#include <asm/ioctl.h>
 
-#include "kernel_store.h"
+#include "ks_module.h"
 
 #define DEVICE_NAME "kernel_store"
 
@@ -24,6 +20,7 @@ static int device_open(struct inode *i, struct file *f);
 static int device_release(struct inode *i, struct file *f);
 static ssize_t device_read(struct file *filp, char *buffer, size_t len, loff_t *offset);
 static ssize_t device_write(struct file *filp, const char *buffer, size_t len, loff_t *offset);
+static long device_ioctl(struct file *filp, unsigned int cmd, unsigned long param);
 
 static int major_num;
 
@@ -33,73 +30,60 @@ struct file_operations fops = {
     .read    = device_read,
     .write   = device_write,
     .open    = device_open,
-    .release = device_release
+    .release = device_release,
+    .unlocked_ioctl = device_ioctl
 };
 
-/* initialize any data for a particular device access */
 static int device_open(struct inode *i, struct file *f){
-    printk("in device_open");
     return 0;
 };
 
-/* release any data for a particular device access */
 static int device_release(struct inode *i, struct file *f){
-    printk("in device_release");
     return 0;
 };
 
-/* read from the keystore */
 static ssize_t device_read(struct file *filp, char *buffer, size_t len, loff_t *offset){
-    int read_bytes = 0;
-
-    printk("in device_read");
-
-    return read_bytes;
+    return 0;
 };
 
-/* write to the keystore */
 static ssize_t device_write(struct file *filp, const char *buffer, size_t len, loff_t *offset){
-    int written_bytes = 0;
-
-    printk("in device_write");
-
-    return written_bytes;
+    return 0;
 };
 
-// /* This function is called whenever a process tries to 
-//  * do an ioctl on our device file. We get two extra 
-//  * parameters (additional to the inode and file 
-//  * structures, which all device functions get): the number
-//  * of the ioctl called and the parameter given to the 
-//  * ioctl function.
-//  *
-//  * If the ioctl is write or read/write (meaning output 
-//  * is returned to the calling process), the ioctl call 
-//  * returns the output of this function.
-//  */
-int device_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long param) {
-    unsigned long err = 0;
-    char* key = (char*)param;
-    char* val = 0;
+static long device_ioctl(struct file *filp, unsigned int cmd, unsigned long param) {
+    node* n = (node*)param;
+    node* k;
+
+    if(!n) return -EINVAL;
+
+    switch(cmd){
+        case KS_GET_VALUE:
+
+            break;
+        case KS_SET_VALUE:
+
+            k = ks_make();
+            printk("key: %s, val: %s",k->key,k->val);
+
+            if( access_ok(VERIFY_READ,n,sizeof(node)) &&
+                !copy_from_user(k,n,sizeof(node))){
+
+                printk("key: %s, val: %s",k->key,k->val);
+
+            }
+            else {
+                return -EACCES;
+            }
 
 
-    if (access_ok(VERIFY_WRITE,key, 1 /*at least one byte*/ )) {
-        
-        // get the value from the datastore
-        val = ks_get(key);
-
-        // try to re-allocate the userspace data
-        if(krealloc(key, len(key) * sizeof(char) + 1, GFP_USER)){
-            copy_to_user(key,val,len(val) * sizeof(char) + 1);
-        }
-
+            // ks_add(k);
+            // printk("added: %s/%s",k->key,k->val);
+            break;
+        default:
+            return -EINVAL;
     }
 
-
-//    int err = 0;
-//    if(access_ok(VERIFY_WRITE,ioctl_param, 1 )){
-//      err = copy_to_user((char*) value_to_return, &ioctl_param, sizeof(ioctl_param) + 1 );
-//    }
+    return 0;
 }
 
 static int __init kernel_store_init(void) {
