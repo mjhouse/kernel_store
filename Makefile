@@ -10,7 +10,7 @@ clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
 
 demo:
-	gcc $(EXTRA_CFLAGS) src/kernel_demo.c -o src/demo
+	gcc $(EXTRA_CFLAGS) -Wstrict-prototypes src/kernel_demo.c -o src/demo 
 
 test:
 	-sudo rmmod src/kernel_store.ko

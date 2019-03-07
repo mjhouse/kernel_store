@@ -7,9 +7,6 @@
 struct data_pair {
 	char* key;
 	char* val;
-
-	struct data_pair* right;
-	struct data_pair* left;
 };
 
 // typedef for convenience
