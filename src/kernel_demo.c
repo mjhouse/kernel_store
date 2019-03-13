@@ -13,7 +13,7 @@ int main(void)
 {
         int fd;
         node before = { .key = "KEY", .val = "VALUE" };
-        node after = { .key = {0}, .val = {0} };
+        node after = { .key = "KEY", .val = {0} };
 
         printf("\nopening driver:");
         fd = open("/dev/ks", O_RDWR);

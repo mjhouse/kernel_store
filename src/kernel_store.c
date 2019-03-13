@@ -20,7 +20,7 @@ dev_t dev = 0;
 static struct class *dev_class;
 static struct cdev ks_cdev;
 
-node value = { .key = {0}, .val = {0} };
+node stash = { .key = {0}, .val = {0} };
 
 static int __init ks_driver_init(void);
 static void __exit ks_driver_exit(void);
@@ -49,31 +49,32 @@ static int ks_release(struct inode *inode, struct file *file) {
 }
 
 static long ks_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
-         switch(cmd) {
-                case KS_SET_VALUE:
-                    printk(KERN_INFO "\tFOR KS_SET_VALUE");
-                    printk(KERN_INFO "\t\tstart stash: {key=%s,val=%s}\n", value.key,value.val);
+    size_t kl = strlen( ((node*) arg)->key );
+    size_t vl = strlen( ((node*) arg)->val );
 
-                    size_t kl = strlen(((node*) arg)->key));
-                    size_t kl = strlen(((node*) arg)->val));
+    switch(cmd) {
+        case KS_SET_VALUE:
+            printk(KERN_INFO "\tFOR KS_SET_VALUE");
+            printk(KERN_INFO "\t\tstart stash: {key=%s,val=%s}\n", stash.key,stash.val);
 
-                    printk("%d\n",strlen();
-                    copy_from_user(&value ,(node*) arg, sizeof(struct _node));
+            copy_from_user(&stash ,(node*) arg, sizeof(struct _node));
 
-                    printk(KERN_INFO "\t\tend stash:   {key=%s,val=%s}\n", value.key,value.val);
-                    printk(KERN_INFO "\tEND KS_SET_VALUE");
-                    break;
-                case KS_GET_VALUE:
-                    printk(KERN_INFO "\tFOR KS_GET_VALUE");
-                    printk(KERN_INFO "\t\tstart stash: {key=%s,val=%s}\n", value.key,value.val);
+            printk(KERN_INFO "\t\tend stash:   {key=%s,val=%s}\n", stash.key,stash.val);
+            printk(KERN_INFO "\tEND KS_SET_VALUE");
+            break;
+        case KS_GET_VALUE:
+            printk(KERN_INFO "\tFOR KS_GET_VALUE");
+            printk(KERN_INFO "\t\tstart stash: {key=%s,val=%s}\n", stash.key,stash.val);
 
-                    copy_to_user((node*) arg, &value, sizeof(struct _node));
+            if(strcmp(((node*) arg)->key,stash.key) == 0){
+                copy_to_user((node*) arg, &stash, sizeof(struct _node));
+            }
 
-                    printk(KERN_INFO "\t\tend stash:   {key=%s,val=%s}\n", value.key,value.val);
-                    printk(KERN_INFO "\tEND KS_GET_VALUE");
-                    break;
-        }
-        return 0;
+            printk(KERN_INFO "\t\tend stash:   {key=%s,val=%s}\n", stash.key,stash.val);
+            printk(KERN_INFO "\tEND KS_GET_VALUE");
+            break;
+    }
+    return 0;
 }
 
 
