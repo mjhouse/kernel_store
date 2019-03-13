@@ -4,15 +4,15 @@
 #include <asm/ioctl.h>
 
 // a key/value pair
-struct data_pair {
-	char* key;
-	char* val;
+struct _node {
+	char key[10];
+	char val[10];
 };
 
 // typedef for convenience
-typedef struct data_pair node;
+typedef struct _node node;
 
-#define KS_GET_VALUE _IOW('q', 1, node*)
-#define KS_SET_VALUE _IOW('q', 2, node*)
+#define KS_GET_VALUE _IOW('q', 1, struct _node*)
+#define KS_SET_VALUE _IOW('q', 2, struct _node*)
 
 #endif

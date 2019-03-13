@@ -1,45 +1,37 @@
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <errno.h>
-#include <string.h>
-#include <sys/ioctl.h>
-extern int errno;
+#include<sys/ioctl.h>
 
 #include "ks_common.h"
 
-// fail with an error message
-void log_exit(char* msg){
-    printf("msg: %snum: %d\n",msg,errno);
-    exit(1);
-}
+int main(void)
+{
+        int fd;
+        node before = { .key = "KEY", .val = "VALUE" };
+        node after = { .key = {0}, .val = {0} };
 
-// open the kernel_store module or fail with a message
-int get_device(){
-    int fd = open("/dev/ks", O_RDWR);
-    if (fd == -1) log_exit("couldn't open device");
-    return fd;
-}
+        printf("\nopening driver:");
+        fd = open("/dev/ks", O_RDWR);
 
-int main(){
-    node n = { .key = "KEY", .val = "VALUE" }; // test node for set
-    node p = { .key = "KEY", .val = "NOVAL" }; // test node for get
+        if(fd < 0) {
+            printf(" cannot open device\n");
+            return 0;
+        }
+        else {
+            printf(" open\n");
+        }
 
-    int fd = get_device();
+        printf("\twriting value to key: %s/%s\n",before.key,before.val);
+        ioctl(fd, KS_SET_VALUE, (node*) &before);
 
-    // set the value in kernel_store or exit
-    printf("trying to set: %s / %s\n",n.key,n.val);
-    if (ioctl(fd, KS_SET_VALUE, &n) < 0) {
-        log_exit("couldn't set to device\n");
-    }
+        ioctl(fd, KS_GET_VALUE, (node*) &after);
+        printf("\treading value from key: %s/%s\n",after.key,after.val);
 
-    // get the value from the kernel_store or exit
-    printf("trying to get: %s / %s\n",p.key,p.val);
-    if (ioctl(fd, KS_GET_VALUE, &p) < 0) {
-        log_exit("couldn't get from device\n");
-    }
-
-    printf("returned: %s/%s\n",p.key,p.val);
-    return 0;
+        printf("closing driver\n");
+        close(fd);
 }

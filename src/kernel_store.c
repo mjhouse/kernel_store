@@ -1,105 +1,126 @@
+#include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/module.h>
-#include <linux/kernel.h>
+#include <linux/kdev_t.h>
 #include <linux/fs.h>
-#include <linux/slab.h>
-#include <linux/uaccess.h>
-#include <asm/ioctl.h>
+#include <linux/cdev.h>
+#include <linux/device.h>
+#include<linux/slab.h>                 //kmalloc()
+#include<linux/uaccess.h>              //copy_to/from_user()
+#include <linux/ioctl.h>
 
 #include "ks_common.h"
-#define DEVICE_NAME "kernel_store"
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Michael House");
-MODULE_DESCRIPTION("A common data store for user-space applications.");
-MODULE_VERSION("0.01");
+MODULE_AUTHOR("Michael House <mjhouse@protonmail.com>");
+MODULE_DESCRIPTION("A key/value store");
+MODULE_VERSION("1.0");
 
-// Prototype for the ioctl function
-static long device_ioctl(struct file *filp, unsigned int cmd, unsigned long param);
+dev_t dev = 0;
+static struct class *dev_class;
+static struct cdev ks_cdev;
 
-static int major_num;
-static node stash = { .key = 0, .val = 0 };
+node value = { .key = {0}, .val = {0} };
 
-/* Device function mapping for this module */
-struct file_operations fops = {
-    .owner   = THIS_MODULE,
-    .unlocked_ioctl = device_ioctl
+static int __init ks_driver_init(void);
+static void __exit ks_driver_exit(void);
+
+static int ks_open(struct inode *inode, struct file *file);
+static int ks_release(struct inode *inode, struct file *file);
+
+static long ks_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+
+static struct file_operations fops =
+{
+        .owner          = THIS_MODULE,
+        .open           = ks_open,
+        .release        = ks_release,
+        .unlocked_ioctl = ks_ioctl,
 };
 
-/*  IOCTL
-    Accepts two command flags-
-        KS_GET_VALUE: should write out the value if the correct key is given
-        KS_SET_VALUE: allows the caller the set the value and key
-*/
-static long device_ioctl(struct file *filp, unsigned int cmd, unsigned long param) {
-    node* n = (node*)param;
+static int ks_open(struct inode *inode, struct file *file) {
+        printk(KERN_INFO "kernel store open\n");
+        return 0;
+}
 
-    size_t sk = 0;
-    size_t sv = 0;
-    unsigned long err = 0;
+static int ks_release(struct inode *inode, struct file *file) {
+        printk(KERN_INFO "kernel store close\n");
+        return 0;
+}
 
-    if(!n) return -EINVAL;
+static long ks_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
+         switch(cmd) {
+                case KS_SET_VALUE:
+                    printk(KERN_INFO "\tFOR KS_SET_VALUE");
+                    printk(KERN_INFO "\t\tstart stash: {key=%s,val=%s}\n", value.key,value.val);
 
-    switch(cmd){
-        case KS_GET_VALUE:
-            printk("KS_GET_VALUE");
+                    size_t kl = strlen(((node*) arg)->key));
+                    size_t kl = strlen(((node*) arg)->val));
 
-            sv = strlen(stash.val) + 1;
-            printk("\tsv: %lu",sv);
+                    printk("%d\n",strlen();
+                    copy_from_user(&value ,(node*) arg, sizeof(struct _node));
 
-            if( access_ok(VERIFY_WRITE,n->val,sv) &&
-                strcmp(n->key,stash.key) == 0){
+                    printk(KERN_INFO "\t\tend stash:   {key=%s,val=%s}\n", value.key,value.val);
+                    printk(KERN_INFO "\tEND KS_SET_VALUE");
+                    break;
+                case KS_GET_VALUE:
+                    printk(KERN_INFO "\tFOR KS_GET_VALUE");
+                    printk(KERN_INFO "\t\tstart stash: {key=%s,val=%s}\n", value.key,value.val);
 
-                err = copy_to_user( n->val, stash.val, sv);
-                printk("\tval chars not copied: %lu",err);
-            }
+                    copy_to_user((node*) arg, &value, sizeof(struct _node));
 
-            break;
-        case KS_SET_VALUE:
-            printk("KS_SET_VALUE");
+                    printk(KERN_INFO "\t\tend stash:   {key=%s,val=%s}\n", value.key,value.val);
+                    printk(KERN_INFO "\tEND KS_GET_VALUE");
+                    break;
+        }
+        return 0;
+}
 
-            sk = strlen(n->key) + 1;
-            sv = strlen(n->val) + 1;
 
-            if(stash.key) kfree(stash.key);
-            if(stash.val) kfree(stash.val);
+static int __init ks_driver_init(void)
+{
+        /*Allocating Major number*/
+        if((alloc_chrdev_region(&dev, 0, 1, "kernel_store")) <0){
+                printk(KERN_INFO "cannot allocate major number\n");
+                return -1;
+        }
+        printk(KERN_INFO "major = %d, minor = %d \n",MAJOR(dev), MINOR(dev));
 
-            stash.key = (char*)kmalloc(sk,GFP_KERNEL);
-            stash.val = (char*)kmalloc(sv,GFP_KERNEL);
+        cdev_init(&ks_cdev,&fops);
+        if((cdev_add(&ks_cdev,dev,1)) < 0){
+            printk(KERN_INFO "Cannot add the device to the system\n");
+            goto r_class;
+        }
 
-            if( copy_from_user( stash.key, n->key, sk) ||
-                copy_from_user( stash.val, n->val, sv) ){
-                return -EINVAL;
-            }
+        /*Creating struct class*/
+        if((dev_class = class_create(THIS_MODULE,"ks_class")) == NULL){
+            printk(KERN_INFO "cannot create the struct class\n");
+            goto r_class;
+        }
 
-            printk("\tstash: %s/%s",stash.key,stash.val);
-            break;
-        default:
-            return -EINVAL;
-    }
-
+        /*Creating device*/
+        if((device_create(dev_class,NULL,dev,NULL,"ks_device")) == NULL){
+            printk(KERN_INFO "cannot create the device\n");
+            goto r_device;
+        }
+        printk(KERN_INFO "device driver inserted\n");
     return 0;
+
+r_device:
+        class_destroy(dev_class);
+r_class:
+        unregister_chrdev_region(dev,1);
+        return -1;
 }
 
-/* Init the module, get a major number
-*/
-static int __init kernel_store_init(void) {
-    major_num = register_chrdev(0, DEVICE_NAME, &fops);
+void __exit ks_driver_exit(void) {
+    device_destroy(dev_class,dev);
+    class_destroy(dev_class);
+    cdev_del(&ks_cdev);
+    unregister_chrdev_region(dev, 1);
 
-    if (major_num < 0) {
-        printk(KERN_ALERT "Couldn't register device with major number: %d\n", major_num);
-        return major_num;
-    } else {
-        printk(KERN_INFO "Module loaded with device major number %d\n", major_num);
-    }
-
-    return 0;
+    printk(KERN_INFO "device driver removed\n");
 }
 
-static void __exit kernel_store_exit(void) {
-    unregister_chrdev(major_num, DEVICE_NAME);
-    printk("Module unloaded\n");
-}
-
-module_init(kernel_store_init);
-module_exit(kernel_store_exit);
+module_init(ks_driver_init);
+module_exit(ks_driver_exit);
