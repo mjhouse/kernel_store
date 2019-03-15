@@ -5,11 +5,12 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
-#include<linux/slab.h>                 //kmalloc()
-#include<linux/uaccess.h>              //copy_to/from_user()
+#include <linux/slab.h>                 //kmalloc()
+#include <linux/uaccess.h>              //copy_to/from_user()
 #include <linux/ioctl.h>
 
 #include "ks_common.h"
+#include "ks_tree.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Michael House <mjhouse@protonmail.com>");
@@ -19,8 +20,6 @@ MODULE_VERSION("1.0");
 dev_t dev = 0;
 static struct class *dev_class;
 static struct cdev ks_cdev;
-
-node stash = { .key = {0}, .val = {0} };
 
 static int __init ks_driver_init(void);
 static void __exit ks_driver_exit(void);
@@ -49,28 +48,27 @@ static int ks_release(struct inode *inode, struct file *file) {
 }
 
 static long ks_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
-    size_t kl = strlen( ((node*) arg)->key );
-    size_t vl = strlen( ((node*) arg)->val );
+    node* n = 0;
 
     switch(cmd) {
         case KS_SET_VALUE:
             printk(KERN_INFO "\tFOR KS_SET_VALUE");
-            printk(KERN_INFO "\t\tstart stash: {key=%s,val=%s}\n", stash.key,stash.val);
 
-            copy_from_user(&stash ,(node*) arg, sizeof(struct _node));
+            n = ks_make();
+            copy_from_user(n ,(node*) arg, sizeof(struct _node));
 
-            printk(KERN_INFO "\t\tend stash:   {key=%s,val=%s}\n", stash.key,stash.val);
+            ks_add(n);
+
+            printk(KERN_INFO "\t\tval added:   {key=%s,val=%s}\n", n->key,n->val);
             printk(KERN_INFO "\tEND KS_SET_VALUE");
             break;
         case KS_GET_VALUE:
             printk(KERN_INFO "\tFOR KS_GET_VALUE");
-            printk(KERN_INFO "\t\tstart stash: {key=%s,val=%s}\n", stash.key,stash.val);
 
-            if(strcmp(((node*) arg)->key,stash.key) == 0){
-                copy_to_user((node*) arg, &stash, sizeof(struct _node));
-            }
+            n = ks_get(((node*) arg)->key);
+            copy_to_user((node*) arg, n, sizeof(struct _node));
 
-            printk(KERN_INFO "\t\tend stash:   {key=%s,val=%s}\n", stash.key,stash.val);
+            printk(KERN_INFO "\t\tval returned:   {key=%s,val=%s}\n", n->key,n->val);
             printk(KERN_INFO "\tEND KS_GET_VALUE");
             break;
     }
@@ -78,9 +76,7 @@ static long ks_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 }
 
 
-static int __init ks_driver_init(void)
-{
-        /*Allocating Major number*/
+static int __init ks_driver_init(void) {
         if((alloc_chrdev_region(&dev, 0, 1, "kernel_store")) <0){
                 printk(KERN_INFO "cannot allocate major number\n");
                 return -1;
@@ -93,13 +89,11 @@ static int __init ks_driver_init(void)
             goto r_class;
         }
 
-        /*Creating struct class*/
         if((dev_class = class_create(THIS_MODULE,"ks_class")) == NULL){
             printk(KERN_INFO "cannot create the struct class\n");
             goto r_class;
         }
 
-        /*Creating device*/
         if((device_create(dev_class,NULL,dev,NULL,"ks_device")) == NULL){
             printk(KERN_INFO "cannot create the device\n");
             goto r_device;
@@ -119,6 +113,8 @@ void __exit ks_driver_exit(void) {
     class_destroy(dev_class);
     cdev_del(&ks_cdev);
     unregister_chrdev_region(dev, 1);
+
+    ks_tree_clr();
 
     printk(KERN_INFO "device driver removed\n");
 }
