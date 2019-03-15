@@ -1,6 +1,6 @@
 # kernel_store
 
-A kernel module that acts as a key/value store for userspace applications on a linux system, done in response to a programming challange from Star Lab. Use the following commands to install the module:
+A kernel module that acts as a key/value store for userspace applications on a linux system, done in response to a programming challange from Star Lab. Don't use the `build.sh` file in the root dir- it has a hard-coded major number. Use the following commands to install the module (preferably on a VM):
 
 ```bash
 # build and load the module
