@@ -65,7 +65,16 @@ static long ks_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
             printk(KERN_INFO "\tFOR KS_SET_VALUE");
 
             n = ks_make();
-            copy_from_user(n ,(node*) arg, sizeof(struct _node));
+
+            if(!n){
+                printk(KERN_ERR "could not create node during set operation");
+                return -EINVAL;
+            }
+
+            if(copy_from_user(n ,(node*) arg, sizeof(struct _node))){
+                printk(KERN_ERR "could not copy given node during set operation");
+                return -EINVAL;
+            };
 
             ks_add(n);
 
@@ -76,7 +85,16 @@ static long ks_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
             printk(KERN_INFO "\tFOR KS_GET_VALUE");
 
             n = ks_get(((node*) arg)->key);
-            copy_to_user((node*) arg, n, sizeof(struct _node));
+
+            if(!n){
+                printk(KERN_ERR "could not find node during get operation");
+                return -EINVAL;
+            }
+
+            if(copy_to_user((node*) arg, n, sizeof(struct _node))){
+                printk(KERN_ERR "could not copy found node during get operation");
+                return -EINVAL;
+            };
 
             printk(KERN_INFO "\t\tval returned:   {key=%s,val=%s}\n", n->key,n->val);
             printk(KERN_INFO "\tEND KS_GET_VALUE");
