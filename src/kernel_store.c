@@ -17,9 +17,9 @@ MODULE_AUTHOR("Michael House <mjhouse@protonmail.com>");
 MODULE_DESCRIPTION("A key/value store");
 MODULE_VERSION("1.0");
 
-dev_t dev = 0;
-static struct class *dev_class;
-static struct cdev ks_cdev;
+#define DEVICE_NAME "kernel_store"
+static int use_count = 0;
+static int major_num;
 
 static int __init ks_driver_init(void);
 static void __exit ks_driver_exit(void);
@@ -29,22 +29,32 @@ static int ks_release(struct inode *inode, struct file *file);
 
 static long ks_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 
-static struct file_operations fops =
-{
-        .owner          = THIS_MODULE,
+static struct file_operations fops = {
         .open           = ks_open,
         .release        = ks_release,
         .unlocked_ioctl = ks_ioctl,
 };
 
 static int ks_open(struct inode *inode, struct file *file) {
-        printk(KERN_INFO "kernel store open\n");
-        return 0;
+    printk(KERN_INFO "kernel store open\n");
+
+    if (use_count) {
+        return -EBUSY;
+    }
+
+    use_count++;
+    try_module_get(THIS_MODULE);
+
+    return 0;
 }
 
 static int ks_release(struct inode *inode, struct file *file) {
-        printk(KERN_INFO "kernel store close\n");
-        return 0;
+    printk(KERN_INFO "kernel store close\n");
+
+    use_count--;
+    module_put(THIS_MODULE);
+
+    return 0;
 }
 
 static long ks_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
@@ -77,44 +87,23 @@ static long ks_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
 
 static int __init ks_driver_init(void) {
-        if((alloc_chrdev_region(&dev, 0, 1, "kernel_store")) <0){
-                printk(KERN_INFO "cannot allocate major number\n");
-                return -1;
-        }
-        printk(KERN_INFO "major = %d, minor = %d \n",MAJOR(dev), MINOR(dev));
 
-        cdev_init(&ks_cdev,&fops);
-        if((cdev_add(&ks_cdev,dev,1)) < 0){
-            printk(KERN_INFO "Cannot add the device to the system\n");
-            goto r_class;
-        }
+    printk(KERN_INFO "use_count = %d",use_count);
 
-        if((dev_class = class_create(THIS_MODULE,"ks_class")) == NULL){
-            printk(KERN_INFO "cannot create the struct class\n");
-            goto r_class;
-        }
-
-        if((device_create(dev_class,NULL,dev,NULL,"ks_device")) == NULL){
-            printk(KERN_INFO "cannot create the device\n");
-            goto r_device;
-        }
-        printk(KERN_INFO "device driver inserted\n");
-    return 0;
-
-r_device:
-        class_destroy(dev_class);
-r_class:
-        unregister_chrdev_region(dev,1);
-        return -1;
+    major_num = register_chrdev(0, DEVICE_NAME, &fops);
+    if (major_num < 0) {
+        printk(KERN_ALERT "could not register device: %d\n", major_num);
+        return major_num;
+    }
+    else {
+        printk(KERN_INFO "major = %d\n", major_num);
+        return 0;
+    }
 }
 
 void __exit ks_driver_exit(void) {
-    device_destroy(dev_class,dev);
-    class_destroy(dev_class);
-    cdev_del(&ks_cdev);
-    unregister_chrdev_region(dev, 1);
-
     ks_tree_clr();
+    unregister_chrdev(major_num,DEVICE_NAME);
 
     printk(KERN_INFO "device driver removed\n");
 }

@@ -9,14 +9,13 @@
 // root node of the tree
 static node* root = 0;
 
+// free a single node
 void ks_free(node* n) {
-	kfree(n->val);
-	kfree(n->key);
 	kfree(n);
-
 	n = 0;
 }
 
+// recursively free memory
 void ks_free_tree(node* n) {
 	if (n == 0) return;
 
@@ -26,6 +25,7 @@ void ks_free_tree(node* n) {
 	ks_free(n);
 }
 
+// make a node
 node* ks_make(void) {
 	node* pair = (node*)kmalloc(sizeof(struct _node),GFP_KERNEL);
 

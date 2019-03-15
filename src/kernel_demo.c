@@ -12,8 +12,12 @@
 int main(void)
 {
         int fd;
+
+        // --------------------------------------------------
+        // change these nodes to get and set different values
         node before = { .key = "KEY", .val = "VALUE" };
         node after = { .key = "KEY", .val = {0} };
+        // --------------------------------------------------
 
         printf("\nopening driver:");
         fd = open("/dev/ks", O_RDWR);
